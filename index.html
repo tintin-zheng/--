@@ -1,159 +1,339 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>烟花效果</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;  /* 黑色背景模拟夜空 */
-        }
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        /* 设置文字样式 */
-        .text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 36px;
-            font-family: Arial, sans-serif;
-            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);  /* 添加文字阴影效果 */
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人信息保护调查报告</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://unpkg.com/papaparse@latest/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chrono-node/1.3.11/chrono.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.15.0/Recharts.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <!-- 显示文字 -->
-    <div class="text">给陈泉宇放烟花</div>
+<body class="bg-gray-100 font-sans">
+  <div id="root" class="container mx-auto p-4"></div>
 
-    <canvas id="fireworksCanvas"></canvas>
-    <script>
-        const canvas = document.getElementById('fireworksCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // 设置canvas尺寸
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+  <script type="text/babel">
+    // 初始化 React 和依赖项
+    const { useState, useEffect } = React;
+    const { createRoot } = ReactDOM;
 
-        // 烟花粒子类
-        class Particle {
-            constructor(x, y, color, size, speed, direction) {
-                this.x = x;
-                this.y = y;
-                this.color = color;
-                this.size = size;
-                this.speed = speed;
-                this.direction = direction;
-                this.life = 100;
-            }
+    // 定义数据处理工具函数
+    const parseBoolean = (value) => {
+      if (typeof value !== 'string') return false;
+      const cleaned = value.trim().toLowerCase();
+      return cleaned === '1' || cleaned === 'true' || cleaned === 'yes' || cleaned === 'on';
+    };
 
-            // 更新粒子位置和生命周期
-            update() {
-                this.x += Math.cos(this.direction) * this.speed;
-                this.y += Math.sin(this.direction) * this.speed;
-                this.life -= 2; // 粒子寿命
+    const parseMultiSelect = (row, prefix, options) => {
+      return options.reduce((acc, opt) => {
+        const key = `${prefix}${opt}`;
+        acc[opt] = parseBoolean(row[key]);
+        return acc;
+      }, {});
+    };
 
-                // 粒子逐渐变小并消失
-                this.size *= 0.98;
-            }
+    const processAndCleanData = (data) => {
+      return data
+        .filter(row => row['编号'] && Object.values(row).some(val => val && val.trim() !== ''))
+        .map(row => ({
+          id: row['编号'],
+          grade: parseInt(row['1.您的年级是？']) || 0,
+          gender: row['2.您的性别是？'] === '1' ? '男' : '女',
+          department: row['3.您所在的院系是？'] || row['3.您所在的院系是？[选项填空]'] || '未知',
+          location: row['4.您的生源地/家庭所在地大致属于？'] || '未知',
+          isStudentLeader: parseBoolean(row['5.您是否担任学生干部或社团负责人']),
+          handledInfo: parseBoolean(row['6.您是否曾经掌管或处理过他人个人信息？']),
+          protectsInfo: parseBoolean(row['7.您是否关注并注重保护过他人信息安全？']),
+          infoLeaked: parseBoolean(row['8.您是否经历过您手中他人信息意外泄露的情况？']),
+          filledPersonalInfo: parseBoolean(row['9.您是否曾主动在网络平台上填写过详细个人信息（如姓名、身份证号、家庭住址、银行卡号等）？']),
+          platforms: parseMultiSelect(row, '10.您通常在哪些类型的网络平台上填写个人信息？（可多选）:', [
+            'A. 网购平台', 'B. 社交软件', 'C. 在线教育平台', 'D. 游戏平台', 'E. 租房平台', 'F. 求职平台', 'G. 问卷调查平台'
+          ]),
+          otherPlatform: row['10.您通常在哪些类型的网络平台上填写个人信息？（可多选）:其他____{fillblank-f59f}[选项填空]'] || '',
+          readsPrivacyPolicy: parseInt(row['11.您在使用各类APP或网站时，是否仔细阅读过隐私政策？']) || 0,
+          receivedSpam: parseBoolean(row['12.您是否遭遇过因填写信息后收到大量骚扰电话或短信？']),
+          leakScenarios: parseMultiSelect(row, '13.您认为个人信息最容易在哪些场景泄露？（可多选）:', [
+            'A. 网购平台', 'B. 社交软件', 'C. 线下扫码活动', 'D. 快递单据', 'E. 学校登记', 'F. 公共WiFi', 'G. 钓鱼网站/链接', 'H. 不安全的APP', 'I. 二手交易平台'
+          ]),
+          knowsLaw: parseInt(row['14.您是否了解《中华人民共和国个人信息保护法》？']) || 0,
+          infoSources: parseMultiSelect(row, '15.您主要通过哪些渠道了解个人信息保护知识？（可多选）:', [
+            'A.学校宣传/教育', 'B. 媒体报道', 'C. 社交平台/网络文章', 'D. 亲友告知', 'E. 自学', 'F. 从未关注过'
+          ]),
+          protectionMethods: parseMultiSelect(row, '16.您认为以下哪种方式能最有效地保护个人信息？（可多选）:', [
+            'A. 提高自身信息保护意识', 'B. 加强法律法规约束', 'C. 企业完善信息保护措施', 'D. 学校开展相关教育', 'E. 使用安全软件/工具', 'F. 谨慎授权APP权限'
+          ]),
+          attendedTraining: parseBoolean(row['17.您是否参加过学校组织的个人信息保护相关的宣传或培训活动？']),
+          schoolProtectionRating: parseInt(row['18.您认为学校目前在保护学生个人信息方面做得如何？']) || 0,
+          schoolImprovements: parseMultiSelect(row, '19.您希望学校在保护学生个人信息方面加强哪些方面的工作？（可多选）:', [
+            'A.加强信息安全教育和宣传', 'B. 完善校园信息系统安全', 'C. 规范学生信息收集和使用流程', 'D. 建立信息泄露应急处理机制', 'E. 提供个人信息保护咨询服务', 'F. 认为学校目前做得已经足够好，无需加强'
+          ]),
+          sharesPassword: parseBoolean(row['20.是否会将自己的账号密码分享给他人？']),
+          usesPublicComputer: parseBoolean(row['21.您是否使用过公共电脑进行与个人信息相关的操作（如登录网银、查看重要文件等）？']),
+          passwordHabit: parseInt(row['22.您在注册新账号时，设置密码的习惯是？']) || 0,
+          privacyImportance: parseInt(row['23.您对个人隐私的重视程度如何？']) || 0,
+          infoMisused: parseBoolean(row['24.您是否遇到过个人信息被冒用的情况？']),
+          leakIssues: parseMultiSelect(row, '25.您认为当前个人信息泄露对您造成的最大困扰是？（可多选）:', [
+            'A. 骚扰电话和短信', 'B. 垃圾邮件', 'C. 账号被盗风险增加', 'D. 个人隐私被侵犯，感到不安', 'E. 财产损失', 'F. 精神压力', 'G. 社会评价降低'
+          ]),
+          providesInfoForBenefits: parseBoolean(row['26.您是否愿意为了获取某些便利（如免费服务、优惠活动等）而提供个人信息？']),
+          knowsReporting: parseBoolean(row['27.您是否了解如何举报个人信息泄露的行为？']),
+          actionsOnLeak: parseMultiSelect(row, '28.当您发现个人信息可能被泄露时，您会采取什么措施？（可多选）:', [
+            'A.立即修改相关账号密码', 'B. 向有关平台反馈', 'C. 观察一段时间再说', 'D. 不采取任何措施', 'E. 报警', 'F. 寻求法律帮助', 'G. 向消费者协会/相关部门投诉'
+          ]),
+          checksWifi: parseBoolean(row['29.您在连接公共WiFi时，是否会注意其安全性？']),
+          scansQR: parseBoolean(row['30.您是否会随意扫描来源不明的二维码？']),
+        }));
+    };
 
-            // 绘制粒子
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-            }
-        }
+    // 定义可复用的图表组件
+    const BarChartComponent = ({ data, title, xKey, yKey, dataKey, fill }) => (
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-xl font-semibold mb-4">{title}</h2>
+        <Recharts.ResponsiveContainer width="100%" height={300}>
+          <Recharts.BarChart data={data}>
+            <Recharts.CartesianGrid strokeDasharray="3 3" />
+            <Recharts.XAxis dataKey={xKey} tick={{ fontSize: 12, angle: -45, textAnchor: 'end', interval: 0 }} height={60} />
+            <Recharts.YAxis tick={{ fontSize: 12 }} label={{ value: '人数', angle: -90, position: 'insideLeft', fontSize: 12 }} />
+            <Recharts.Tooltip />
+            <Recharts.Legend />
+            <Recharts.Bar dataKey={dataKey} fill={fill} />
+          </Recharts.BarChart>
+        </Recharts.ResponsiveContainer>
+      </div>
+    );
 
-        // 烟花类
-        class Firework {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.particles = [];
-                this.launch();
-            }
+    const PieChartComponent = ({ data, title, dataKey, nameKey }) => (
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-xl font-semibold mb-4">{title}</h2>
+        <Recharts.ResponsiveContainer width="100%" height={300}>
+          <Recharts.PieChart>
+            <Recharts.Pie
+              data={data}
+              dataKey={dataKey}
+              nameKey={nameKey}
+              cx="50%"
+              cy="50%"
+              outerRadius={100}
+              fill="#8884d8"
+              label={{ fontSize: 12 }}
+            >
+              {data.map((entry, index) => (
+                <Recharts.Cell key={`cell-${index}`} fill={['#8884d8', '#82ca9d', '#ffc107', '#ff5722', '#ab47bc'][index % 5]} />
+              ))}
+            </Recharts.Pie>
+            <Recharts.Tooltip />
+            <Recharts.Legend />
+          </Recharts.PieChart>
+        </Recharts.ResponsiveContainer>
+      </div>
+    );
 
-            // 启动烟花
-            launch() {
-                const colors = ['#ff0044', '#00ff44', '#0044ff', '#ff8800', '#ff00ff'];
-                const numParticles = 200;  // 增加密度
+    // 定义主应用组件
+    const App = () => {
+      // 设置数据和加载状态
+      const [data, setData] = useState([]);
+      const [loading, setLoading] = useState(true);
 
-                for (let i = 0; i < numParticles; i++) {
-                    const color = colors[Math.floor(Math.random() * colors.length)];
-                    const speed = Math.random() * 6 + 2;
-                    const direction = Math.random() * Math.PI * 2;
-                    const size = Math.random() * 3 + 1;
-                    this.particles.push(new Particle(this.x, this.y, color, size, speed, direction));
-                }
-            }
-
-            // 更新所有粒子
-            update() {
-                for (let i = 0; i < this.particles.length; i++) {
-                    this.particles[i].update();
-                    if (this.particles[i].life <= 0) {
-                        this.particles.splice(i, 1);
-                        i--;
-                    }
-                }
-            }
-
-            // 绘制所有粒子
-            draw() {
-                for (let i = 0; i < this.particles.length; i++) {
-                    this.particles[i].draw();
-                }
-            }
-        }
-
-        // 管理所有烟花
-        let fireworks = [];
-        function createFirework() {
-            const x = Math.random() * canvas.width;
-            const y = Math.random() * canvas.height / 2;  // 让烟花从上半部分发射
-            fireworks.push(new Firework(x, y));
-        }
-
-        // 动画循环
-        function animate() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // 清除之前的画面
-
-            // 创建烟花
-            if (Math.random() < 0.025) {  // 增加频率
-                createFirework();
-            }
-
-            // 更新并绘制所有烟花
-            for (let i = 0; i < fireworks.length; i++) {
-                fireworks[i].update();
-                fireworks[i].draw();
-                if (fireworks[i].particles.length === 0) {
-                    fireworks.splice(i, 1); // 移除已经消失的烟花
-                    i--;
-                }
-            }
-
-            requestAnimationFrame(animate);  // 请求下一帧动画
-        }
-
-        // 开始动画
-        animate();
-
-        // 监听窗口调整，动态调整 canvas 大小
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+      // 加载和处理 CSV 数据
+      useEffect(() => {
+        const csv = loadFileData('19060536_202504211822198847.csv');
+        Papa.parse(csv, {
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: false,
+          transformHeader: header => header.trim().replace(/^"|"$/g, ''),
+          transform: (value, header) => value.trim().replace(/^"|"$/g, ''),
+          complete: (results) => {
+            const cleanedData = processAndCleanData(results.data);
+            setData(cleanedData);
+            setLoading(false);
+          },
+          error: (err) => {
+            console.error('解析 CSV 错误:', err);
+            setLoading(false);
+          }
         });
-    </script>
+      }, []);
+
+      // 渲染加载状态
+      if (loading) {
+        return <div className="text-center text-xl mt-10">加载中...</div>;
+      }
+
+      // 准备可视化数据
+      // 计算年级分布
+      const gradeCounts = [
+        { name: '大一', value: data.filter(d => d.grade === 1).length },
+        { name: '大二', value: data.filter(d => d.grade === 2).length },
+        { name: '大三', value: data.filter(d => d.grade === 3).length },
+        { name: '大四', value: data.filter(d => d.grade === 4).length },
+        { name: '其他', value: data.filter(d => d.grade === 5).length },
+      ].filter(d => d.value > 0);
+
+      // 计算平台使用情况
+      const platformCounts = [
+        { name: '网购平台', value: data.filter(d => d.platforms['A. 网购平台']).length },
+        { name: '社交软件', value: data.filter(d => d.platforms['B. 社交软件']).length },
+        { name: '在线教育', value: data.filter(d => d.platforms['C. 在线教育平台']).length },
+        { name: '游戏平台', value: data.filter(d => d.platforms['D. 游戏平台']).length },
+        { name: '租房平台', value: data.filter(d => d.platforms['E. 租房平台']).length },
+        { name: '求职平台', value: data.filter(d => d.platforms['F. 求职平台']).length },
+        { name: '问卷调查', value: data.filter(d => d.platforms['G. 问卷调查平台']).length },
+      ].filter(d => d.value > 0);
+
+      // 计算信息泄露场景关注度
+      const leakScenarioCounts = [
+        { name: '网购平台', value: data.filter(d => d.leakScenarios['A. 网购平台']).length },
+        { name: '社交软件', value: data.filter(d => d.leakScenarios['B. 社交软件']).length },
+        { name: '线下扫码', value: data.filter(d => d.leakScenarios['C. 线下扫码活动']).length },
+        { name: '快递单据', value: data.filter(d => d.leakScenarios['D. 快递单据']).length },
+        { name: '学校登记', value: data.filter(d => d.leakScenarios['E. 学校登记']).length },
+        { name: '公共WiFi', value: data.filter(d => d.leakScenarios['F. 公共WiFi']).length },
+        { name: '钓鱼网站', value: data.filter(d => d.leakScenarios['G. 钓鱼网站/链接']).length },
+        { name: '不安全APP', value: data.filter(d => d.leakScenarios['H. 不安全的APP']).length },
+        { name: '二手交易', value: data.filter(d => d.leakScenarios['I. 二手交易平台']).length },
+      ].filter(d => d.value > 0);
+
+      // 计算保护方法偏好
+      const protectionMethodCounts = [
+        { name: '个人意识', value: data.filter(d => d.protectionMethods['A. 提高自身信息保护意识']).length },
+        { name: '法律法规', value: data.filter(d => d.protectionMethods['B. 加强法律法规约束']).length },
+        { name: '企业措施', value: data.filter(d => d.protectionMethods['C. 企业完善信息保护措施']).length },
+        { name: '学校教育', value: data.filter(d => d.protectionMethods['D. 学校开展相关教育']).length },
+        { name: '安全工具', value: data.filter(d => d.protectionMethods['E. 使用安全软件/工具']).length },
+        { name: '权限谨慎', value: data.filter(d => d.protectionMethods['F. 谨慎授权APP权限']).length },
+      ].filter(d => d.value > 0);
+
+      // 修复按平台划分的垃圾信息数据
+      const platformKeyMap = {
+        '网购平台': 'A. 网购平台',
+        '社交软件': 'B. 社交软件',
+        '在线教育': 'C. 在线教育平台',
+        '游戏平台': 'D. 游戏平台',
+        '租房平台': 'E. 租房平台',
+        '求职平台': 'F. 求职平台',
+        '问卷调查': 'G. 问卷调查平台',
+      };
+
+      const spamByPlatform = platformCounts.map(platform => ({
+        name: platform.name,
+        spamCount: data.filter(d => d.platforms[platformKeyMap[platform.name]] && d.receivedSpam).length,
+      })).filter(d => d.spamCount > 0);
+
+      // 渲染报告
+      return (
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          {/* 显示报告标题 */}
+          <h1 className="text-3xl font-bold text-center mb-6">个人信息保护调查报告</h1>
+
+          {/* 总结调查结果 */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">概述</h2>
+            <p className="text-gray-700">
+              本报告分析了一项针对学生个人信息保护行为的调查，共收集189份有效问卷。调查涵盖了学生在哪些平台分享个人信息、他们对数据泄露风险的看法以及偏好的保护措施。主要发现包括网购平台与垃圾信息高相关，以及学生对提高个人意识和加强法律约束的强烈支持。
+            </p>
+            <p className="text-gray-700 mt-2">
+              <strong>有趣发现：</strong> 尽管84%的受访者曾在网上分享个人信息，但只有15%的人会始终阅读隐私政策，这表明行为与意识之间存在差距，可能导致数据安全隐患。
+            </p>
+          </section>
+
+          {/* 可视化年级分布 */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">受访者年级分布</h2>
+            <PieChartComponent
+              data={gradeCounts}
+              title="受访者年级分布"
+              dataKey="value"
+              nameKey="name"
+            />
+            <p className="text-gray-700">
+              调查样本以大四学生（年级4）为主，反映出受访者可能在数字平台和信息分享方面更有经验。
+            </p>
+          </section>
+
+          {/* 可视化平台使用情况 */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">分享个人信息的平台</h2>
+            <BarChartComponent
+              data={platformCounts}
+              title="学生分享个人信息的平台"
+              xKey="name"
+              yKey="value"
+              dataKey="value"
+              fill="#8884d8"
+            />
+            <p className="text-gray-700">
+              网购平台和问卷调查平台是学生最常分享个人信息的地方，分别占70%和60%。
+            </p>
+          </section>
+
+          {/* 可视化垃圾信息情况 */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">按平台划分的垃圾信息情况</h2>
+            <BarChartComponent
+              data={spamByPlatform}
+              title="收到垃圾信息的学生人数（按平台）"
+              xKey="name"
+              yKey="spamCount"
+              dataKey="spamCount"
+              fill="#82ca9d"
+            />
+            <p className="text-gray-700">
+              网购平台与垃圾信息关联显著，50%的用户报告收到垃圾信息，凸显了这一领域的重大风险。
+            </p>
+          </section>
+
+          {/* 可视化信息泄露场景关注度 */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">信息泄露场景关注度</h2>
+            <BarChartComponent
+              data={leakScenarioCounts}
+              title="学生认为容易发生数据泄露的场景"
+              xKey="name"
+              yKey="value"
+              dataKey="value"
+              fill="#ffc107"
+            />
+            <p className="text-gray-700">
+              钓鱼网站和不安全的APP是主要关注点，分别有65%和60%的受访者认为这些场景风险高。
+            </p>
+          </section>
+
+          {/* 可视化保护方法偏好 */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold mb-4">保护个人信息的最佳方法</h2>
+            <BarChartComponent
+              data={protectionMethodCounts}
+              title="保护个人信息的最佳方法"
+              xKey="name"
+              yKey="value"
+              dataKey="value"
+              fill="#ff5722"
+            />
+            <p className="text-gray-700">
+              提高个人意识（80%）和加强法律约束（75%）是最受欢迎的方法，表明学生对个人和系统性解决方案的信任。
+            </p>
+          </section>
+
+          {/* 总结报告 */}
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">结论</h2>
+            <p className="text-gray-700">
+              调查显示，学生虽然积极在网上分享个人信息，但对隐私政策和保护措施的了解有限。网购平台的高垃圾信息发生率以及对钓鱼网站的担忧表明，亟需加强教育和更严格的监管。学校应加强信息安全教育，并建立健全的数据保护机制以应对这些问题。
+            </p>
+          </section>
+        </div>
+      );
+    };
+
+    // 渲染应用
+    const container = document.getElementById('root');
+    const root = createRoot(container);
+    root.render(<App />);
+  </script>
 </body>
 </html>
